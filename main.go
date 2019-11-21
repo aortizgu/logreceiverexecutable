@@ -2,11 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"logreceiver"
+	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"syscall"
+	"unsafe"
 )
 
 const (
@@ -17,7 +22,7 @@ const (
 	dbPath        string = "db/syslog.db"
 	httpPort      string = "8081"
 	cleanPeriodMs int    = 1000 /*millis*/ * 60 /*seconds*/ * 1 /*minutes*/
-	maxLogs       int    = 500                                  // MaxLogs : MaxLogs to store in db
+	maxLogs       int    = 1000 * 10                            // MaxLogs : MaxLogs to store in db
 )
 
 //Web handlers:
@@ -82,31 +87,96 @@ func serveWs(logReceiver *logreceiver.LogReceiver, w http.ResponseWriter, r *htt
 	logreceiver.NewClient(logReceiver, conn)
 }
 
+func getAdapterList() (*syscall.IpAdapterInfo, error) {
+	b := make([]byte, 1000)
+	l := uint32(len(b))
+	a := (*syscall.IpAdapterInfo)(unsafe.Pointer(&b[0]))
+	// TODO(mikio): GetAdaptersInfo returns IP_ADAPTER_INFO that
+	// contains IPv4 address list only. We should use another API
+	// for fetching IPv6 stuff from the kernel.
+	err := syscall.GetAdaptersInfo(a, &l)
+	if err == syscall.ERROR_BUFFER_OVERFLOW {
+		b = make([]byte, l)
+		a = (*syscall.IpAdapterInfo)(unsafe.Pointer(&b[0]))
+		err = syscall.GetAdaptersInfo(a, &l)
+	}
+	if err != nil {
+		return nil, os.NewSyscallError("GetAdaptersInfo", err)
+	}
+	return a, nil
+}
+
+func localAddresses() ([]net.Interface, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	aList, err := getAdapterList()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ifi := range ifaces {
+		for ai := aList; ai != nil; ai = ai.Next {
+			index := ai.Index
+
+			if ifi.Index == int(index) {
+				ipl := &ai.IpAddressList
+				for ; ipl != nil; ipl = ipl.Next {
+
+					fmt.Printf("id[%d]: name[%s] addres[%s] mask[%s]\n", ifi.Index, ifi.Name, ipl.IpAddress, ipl.IpMask)
+				}
+			}
+		}
+	}
+	return ifaces, err
+}
+
 // main
 func main() {
-	l := logreceiver.NewLogReceiver(serviceName, serviceType, serviceDomain, dbPath, servicePort, cleanPeriodMs, maxLogs)
-	l.Start()
-	http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
-		handleSearch(l, w, r)
-	})
-	http.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
-		handleInfo(l, w, r)
-	})
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(l, w, r)
-	})
-	http.HandleFunc("/panic", func(w http.ResponseWriter, r *http.Request) {
-		panic("panic called")
-	})
-	http.HandleFunc("/nopanic", func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if x := recover(); x != nil {
-				log.Println(x)
-				log.Println("panic handled")
-			}
-		}()
-		panic("panic called")
-	})
-	http.Handle("/", http.StripPrefix(strings.TrimRight("/", "/"), http.FileServer(http.Dir("./static"))))
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+httpPort, nil))
+	ifaceAddress, _ := localAddresses()
+	log.Println("insert id of interface")
+	var i int
+	fmt.Scanf("%d", &i)
+	var ok bool = false
+	var iface net.Interface
+	for _, ifi := range ifaceAddress {
+		if ifi.Index == i {
+			ok = true
+			iface = ifi
+			break
+		}
+	}
+	if ok {
+		log.Println("selected " + iface.Name)
+		l := logreceiver.NewLogReceiver(serviceName, serviceType, serviceDomain, dbPath, servicePort, cleanPeriodMs, maxLogs, iface)
+		l.Start()
+		http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
+			handleSearch(l, w, r)
+		})
+		http.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
+			handleInfo(l, w, r)
+		})
+		http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+			serveWs(l, w, r)
+		})
+		http.HandleFunc("/panic", func(w http.ResponseWriter, r *http.Request) {
+			panic("panic called")
+		})
+		http.HandleFunc("/nopanic", func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if x := recover(); x != nil {
+					log.Println(x)
+					log.Println("panic handled")
+				}
+			}()
+			panic("panic called")
+		})
+		http.Handle("/", http.StripPrefix(strings.TrimRight("/", "/"), http.FileServer(http.Dir("./static"))))
+		log.Println("open http://localhost:" + httpPort)
+		log.Fatal(http.ListenAndServe("0.0.0.0:"+httpPort, nil))
+	} else {
+		log.Fatal("wrong interface")
+	}
 }
