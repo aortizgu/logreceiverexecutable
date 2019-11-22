@@ -12,17 +12,20 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/grandcat/zeroconf"
 )
 
 const (
-	serviceName   string = "log"
-	serviceType   string = "_syslog._udp"
-	serviceDomain string = "local."
-	servicePort   int    = 514
-	dbPath        string = "db/syslog.db"
-	httpPort      string = "8081"
-	cleanPeriodMs int    = 1000 /*millis*/ * 60 /*seconds*/ * 1 /*minutes*/
-	maxLogs       int    = 1000 * 10                            // MaxLogs : MaxLogs to store in db
+	serviceName       string = "log"
+	serviceSyslogType string = "_syslog._udp"
+	serviceHTTPType   string = "_http._tcp"
+	serviceDomain     string = "local."
+	servicePort       int    = 514
+	dbPath            string = "db/syslog.db"
+	httpPort          int    = 8081
+	cleanPeriodMs     int    = 1000 /*millis*/ * 60 /*seconds*/ * 1 /*minutes*/
+	maxLogs           int    = 500                                  // MaxLogs : MaxLogs to store in db
 )
 
 //Web handlers:
@@ -152,6 +155,11 @@ func main() {
 		log.Println("selected " + iface.Name)
 		l := logreceiver.NewLogReceiver(serviceName, serviceType, serviceDomain, dbPath, servicePort, cleanPeriodMs, maxLogs, iface)
 		l.Start()
+		_, err := zeroconf.Register(serviceName, serviceHTTPType, serviceDomain, httpPort, nil, nil)
+		if err != nil {
+			panic(err)
+		}
+
 		http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
 			handleSearch(l, w, r)
 		})
