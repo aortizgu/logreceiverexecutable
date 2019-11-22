@@ -17,15 +17,15 @@ import (
 )
 
 const (
-	serviceName       string = "log"
-	serviceSyslogType string = "_syslog._udp"
-	serviceHTTPType   string = "_http._tcp"
-	serviceDomain     string = "local."
-	servicePort       int    = 514
-	dbPath            string = "db/syslog.db"
-	httpPort          int    = 8081
-	cleanPeriodMs     int    = 1000 /*millis*/ * 60 /*seconds*/ * 1 /*minutes*/
-	maxLogs           int    = 500                                  // MaxLogs : MaxLogs to store in db
+	serviceName     string = "log"
+	serviceType     string = "_syslog._udp"
+	serviceHTTPType string = "_http._tcp"
+	serviceDomain   string = "local."
+	servicePort     int    = 514
+	dbPath          string = "db/syslog.db"
+	httpPort        int    = 8081
+	cleanPeriodMs   int    = 1000 /*millis*/ * 60 /*seconds*/ * 1 /*minutes*/
+	maxLogs         int    = 500                                  // MaxLogs : MaxLogs to store in db
 )
 
 //Web handlers:
@@ -182,8 +182,8 @@ func main() {
 			panic("panic called")
 		})
 		http.Handle("/", http.StripPrefix(strings.TrimRight("/", "/"), http.FileServer(http.Dir("./static"))))
-		log.Println("open http://localhost:" + httpPort)
-		log.Fatal(http.ListenAndServe("0.0.0.0:"+httpPort, nil))
+		log.Println("open http://localhost:" + strconv.Itoa(httpPort))
+		log.Fatal(http.ListenAndServe("0.0.0.0:"+strconv.Itoa(httpPort), nil))
 	} else {
 		log.Fatal("wrong interface")
 	}
