@@ -141,7 +141,6 @@ function matchsLiveFilter(log){
 }
 
 function newLiveData(data) {
-	console.log("new data");
 	var log = $.parseJSON(data);;
 	LIVE_DATA.push(log);
 	new_data_count = new_data_count +1;
