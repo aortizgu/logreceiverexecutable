@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/aortizgu/logreceiver"
-
 	"github.com/grandcat/zeroconf"
 )
 
