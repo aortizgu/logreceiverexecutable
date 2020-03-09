@@ -1,265 +1,408 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <title>LOGS</title>
+    <meta charset="UTF-8" />
 
-<head>
-	<title>LOGS</title>
-	<meta charset="UTF-8">
+    <link rel="shortcut icon" href="favicon.ico" />
+    <script src="libs/jquery.min.js" charset="utf-8"></script>
+    <link href="libs/bootstrap-3-3-7.min.css" rel="stylesheet" />
+    <script src="libs/bootstrap-3-3-7.min.js"></script>
+    <script src="libs/bootstrap-datepicker.min.js" charset="utf-8"></script>
+    <script src="download.js"></script>
+    <script src="export.js"></script>
+    <script src="ws.js"></script>
+    <script src="index.js"></script>
+    <style>
+      .popover.clockpicker-popover {
+        z-index: 1050;
+      }
 
-	<link rel="shortcut icon" href="favicon.ico">
-	<script src="libs/jquery.min.js" charset="utf-8"></script>
-	<link href="libs/bootstrap-3-3-7.min.css" rel="stylesheet">
-	<script src="libs/bootstrap-3-3-7.min.js"></script>
-	<script src="libs/bootstrap-datepicker.min.js"
-		charset="utf-8"></script>
-	<script src="download.js"></script>
-	<script src="export.js"></script>
-	<script src="ws.js"></script>
-	<script src="index.js"></script>
-	<style>
-		.popover.clockpicker-popover {
-			z-index: 1050;
-		}
+      .progress-container {
+        width: 100%;
+        height: 8px;
+        background: #ccc;
+      }
 
-		.progress-container {
-			width: 100%;
-			height: 8px;
-			background: #ccc;
-		}
+      .progress-bar {
+        height: 8px;
+        background: #4caf50;
+        width: 0%;
+      }
 
-		.progress-bar {
-			height: 8px;
-			background: #4caf50;
-			width: 0%;
-		}
+      .content {
+        padding: 10px 0;
+        overflow-y: scroll;
+      }
+      html,
+      body,
+      .container {
+        height: 100%;
+      }
+      .container {
+        display: table;
+        width: 100%;
+        padding: 0 0 0 0; /*set left/right padding according to needs*/
+        box-sizing: border-box;
+      }
 
-		.content {
-			padding: 10px 0;
-			overflow-y: scroll;
-			overflow-x: hidden;
-		}
+      .row {
+        height: 100%;
+        display: table-row;
+      }
 
-		.my_button {
-			background-color: grey;
-		}
+      .row .no-float {
+        display: table-cell;
+        float: none;
+      }
 
-		.my_button_stop {
-			background-color: #e44c4c;
-		}
+      .table-fixed {
+        table-layout: fixed;
+        width: 100%;
+      }
+    </style>
+  </head>
 
-		.my_jumbo p {
-			font-size: small;
-		}
+  <body>
+    <nav class="navbar navbar-inverse">
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <img src="actia.png" class="img-fluid" alt="Responsive image" />
+        <ul class="nav navbar-nav navbar-right">
+          <li class="dropdown">
+            <a
+              href="#"
+              class="dropdown-toggle"
+              data-toggle="dropdown"
+              role="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              >Options<span class="caret"></span
+            ></a>
+            <ul class="dropdown-menu">
+              <li><a id="live_view_button">Live View</a></li>
+              <li><a id="search_view_button">Search View</a></li>
+              <li role="separator" class="divider"></li>
+              <li><a id="enable_scroll_button">Enable auto-croll</a></li>
+              <li><a id="disable_scroll_button">Disable auto-scroll</a></li>
+              <li><a id="about_button">About</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </nav>
 
+    <div id="console_logs_live_div" class="container">
+      <div class="row">
+        <div class="col-md-12 no-float">
+          <h3 id="no-connection" style="text-align: center; color: red;" hidden>
+            CONNECTION LOST!
+          </h3>
+          <h3>
+            Live View Logs
+            <button type="button" class="btn btn-success" id="live_filters">
+              FILTERS
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              id="clear_live_filters"
+            >
+              CLEAR FILTERS
+            </button>
+            <button type="button" class="btn btn-success" id="clear_live_logs">
+              CLEAR LOGS
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              id="search_and_export_button"
+            >
+              SEARCH AND EXPORT
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              id="export_csv_button"
+            >
+              EXPORT PANEL TO CSV
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              id="export_txt_button"
+            >
+              EXPORT PANEL TO TXT
+            </button>
+          </h3>
+          <div>
+            <table id="console_logs_live_table" class="content table-fixed">
+              <thead>
+                <tr>
+                  <th scope="col" style="width: 5.00%">Severity</th>
+                  <th scope="col" style="width: 10.00%">Time</th>
+                  <th scope="col" style="width: 5.00%">Host</th>
+                  <th scope="col" style="width: 5.00%">App</th>
+                  <th scope="col" style="width: 75.00%">Message</th>
+                </tr>
+              </thead>
+              <tbody id="console_logs_live"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="console_logs_search_div" class="container">
+      <div class="row">
+        <div class="col-md-12 no-float">
+          <h3>
+            Search View Logs
+            <button type="button" class="btn btn-success" id="search">
+              SEARCH
+            </button>
+            <button type="button" class="btn btn-success" id="clear_search">
+              CLEAR
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              id="export_csv_button"
+            >
+              EXPORT PANEL TO CSV
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              id="export_txt_button"
+            >
+              EXPORT PANEL TO TXT
+            </button>
+          </h3>
+          <div>
+            <table class="content table-fixed">
+              <thead>
+                <tr>
+                  <th scope="col" style="width: 5.00%">Severity</th>
+                  <th scope="col" style="width: 10.00%">Time</th>
+                  <th scope="col" style="width: 5.00%">Host</th>
+                  <th scope="col" style="width: 5.00%">App</th>
+                  <th scope="col" style="width: 75.00%">Message</th>
+                </tr>
+              </thead>
+              <tbody id="console_logs_search"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
-		.navbar-default {
-			background-color: #E6F4CD;
-		}
+    <div class="modal fade" id="dialog_filter_live" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header" style="padding: 35px 50px;">
+            <button type="button" class="close" data-dismiss="modal">
+              &times;
+            </button>
+            <h4>Live Filters</h4>
+          </div>
+          <div class="modal-body" style="padding: 40px 50px;">
+            <form role="form">
+              <div class="form-group">
+                <div>
+                  <br />
+                  <label for="severity">From Severity</label>
+                  <select id="dialog_filter_severity" name="severity">
+                    <option value="0">0-Emergency</option>
+                    <option value="1">1-Alert</option>
+                    <option value="2">2-Critical</option>
+                    <option value="3">3-Error</option>
+                    <option value="4">4-Warning</option>
+                    <option value="5">5-Notice</option>
+                    <option value="6">6-Informational</option>
+                    <option value="7" selected>7-Debug</option>
+                  </select>
+                </div>
+                <div>
+                  <br />
+                  <label for="host">Host</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dialog_filter_hostname"
+                    placeholder="Host"
+                    value=""
+                  />
+                </div>
+                <div>
+                  <br />
+                  <label for="app">App</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dialog_filter_app"
+                    placeholder="App"
+                    value=""
+                  />
+                </div>
+              </div>
+              <button
+                class="btn btn-success btn-block"
+                id="ok_live_filters"
+                data-dismiss="modal"
+              >
+                OK
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
 
-		.container .jumbotron,
-		.container-fluid .jumbotron {
-			background-color: #E6F4CD;
-		}
-	</style>
-</head>
-
-<body>
-	<nav class="navbar navbar-default">
-		<div class="container container-fluid">
-			<div class="container container-fluid" style="min-height: 80px;">
-			<a class="navbar-brand" href="#"> <img src="actia.png"></a>
-			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-				<ul class="nav navbar-nav navbar-right">
-					<li class="dropdown"><a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
-							aria-haspopup="true" aria-expanded="false">Options<span class="caret"></span></a>
-						<ul class="dropdown-menu">
-							<li><a id="live_view_button">Live View</a></li>
-							<li><a id="search_view_button">Search View</a></li>
-							<li role="separator" class="divider"></li>
-							<li><a id="export_csv_button">Export panel to csv</a></li>
-							<li><a id="export_txt_button">Export panel to txt</a></li>
-							<li><a id="enable_scroll_button">Enable auto-croll</a></li>
-							<li><a id="disable_scroll_button">Disable auto-scroll</a></li>
-							<li><a id="about_button">About</a></li>
-						</ul>
-					</li>
-				</ul>
-			</div>
-		</div>
-	</nav>
-
-	<div id="no-connection" class="container container-body" hidden>
-		<div class="my_jumbo jumbotron jumbotron-fluid">
-			<h3>
-				<center style="color: red;">CONNECTION LOST!</center>
-			</h3>
-		</div>
-	</div>
-
-	<div id="console_logs_live_div" class="console_div container container-body" hidden>
-		<div class="console my_jumbo jumbotron jumbotron-fluid">
-			<h3>
-				Live View Logs
-				<button type="button" class="btn btn-success" id="live_filters">FILTERS</button>
-				<button type="button" class="btn btn-success" id="clear_live_filters">CLEAR FILTERS</button>
-				<button type="button" class="btn btn-success" id="clear_live_logs">CLEAR LOGS</button>
-				<button type="button" class="btn btn-success" id="export_live">EXPORT</button>
-			</h3>
-			<div>
-				<table class="content table">
-					<thead>
-						<tr>
-							<th scope="col" style="width: 2.00%">Severity</th>
-							<th scope="col" style="width: 20.00%">Time</th>
-							<th scope="col" style="width: 10.00%">Host</th>
-							<th scope="col" style="width: 10.00%">Device</th>
-							<th scope="col" style="width: 58.00%">Message</th>
-						</tr>
-					</thead>
-					<tbody id="console_logs_live">
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
-
-	<div id="console_logs_search_div" class="console_div container container-body" hidden>
-		<div class="console my_jumbo jumbotron jumbotron-fluid">
-			<h3>
-				Search View Logs
-				<button type="button" class="btn btn-success" id="search">SEARCH</button>
-				<button type="button" class="btn btn-success" id="clear_search">CLEAR</button>
-				<button type="button" class="btn btn-success" id="export_search">EXPORT</button>
-
-			</h3>
-			<div>
-				<table class="content table">
-					<thead>
-						<tr>
-							<th scope="col" style="width: 2.00%">Severity</th>
-							<th scope="col" style="width: 20.00%">Time</th>
-							<th scope="col" style="width: 10.00%">Host</th>
-							<th scope="col" style="width: 10.00%">Device</th>
-							<th scope="col" style="width: 58.00%">Message</th>
-						</tr>
-					</thead>
-					<tbody id="console_logs_search">
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
-
-	<div class="modal fade" id="dialog_filter_live" role="dialog">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header" style="padding: 35px 50px;">
-					<button type="button" class="close" data-dismiss="modal">&times;</button>
-					<h4>Live Filters</h4>
-				</div>
-				<div class="modal-body" style="padding: 40px 50px;">
-					<form role="form">
-						<div class="form-group">
-							<div>
-								<br> <label for="severity">Severity</label> <input type="text" class="form-control"
-									id="dialog_filter_severity" placeholder="Severity" value="">
-							</div>
-							<div>
-								<br> <label for="host">Host</label> <input type="text" class="form-control"
-									id="dialog_filter_hostname" placeholder="Host" value="">
-							</div>
-							<div>
-								<br> <label for="device">Device</label> <input type="text" class="form-control"
-									id="dialog_filter_device" placeholder="Device" value="">
-							</div>
-						</div>
-						<button class="btn btn-success btn-block" id="ok_live_filters" data-dismiss="modal">OK</button>
-					</form>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<div class="modal fade" id="dialog_filter_search" role="dialog">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header" style="padding: 35px 50px;">
-					<button type="button" class="close" data-dismiss="modal">&times;</button>
-					<h4>Search Filters</h4>
-				</div>
-				<div class="modal-body" style="padding: 40px 50px;">
-					<form role="form">
-						<div class="form-group">
-							<div>
-								<br> <label for="severity">Severity</label> <input type="text" class="form-control"
-									id="dialog_search_severity" placeholder="Severity" value="">
-							</div>
-							<div>
-								<br> <label for="host">Host</label> <input type="text" class="form-control"
-									id="dialog_search_hostname" placeholder="Host" value="">
-							</div>
-							<div>
-								<br> <label for="device">Device</label> <input type="text" class="form-control"
-									id="dialog_search_device" placeholder="Device" value="">
-							</div>
-							<div>
-								<br> <label for="day">Day: </label>
-								<input class="day" type="text" id="day-search" />
-							</div>
-						</div>
-						<button class="btn btn-success btn-block" id="ok_search_filters"
-							data-dismiss="modal">OK</button>
-					</form>
-				</div>
-			</div>
-		</div>
-	</div>
-	<div class="modal fade" id="dialog_filter_export" role="dialog">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header" style="padding: 35px 50px;">
-					<button type="button" class="close" data-dismiss="modal">&times;</button>
-					<h4>Export Filters</h4>
-				</div>
-				<div class="modal-body" style="padding: 40px 50px;">
-					<form role="form">
-						<div class="form-group">
-							<div>
-								<br> <label for="severity">Severity</label> <input type="text" class="form-control"
-									id="dialog_export_severity" placeholder="Severity" value="">
-							</div>
-							<div>
-								<br> <label for="host">Host</label> <input type="text" class="form-control"
-									id="dialog_export_hostname" placeholder="Host" value="">
-							</div>
-							<div>
-								<br> <label for="device">Device</label> <input type="text" class="form-control"
-									id="dialog_export_device" placeholder="Device" value="">
-							</div>
-							<div>
-								<br> <label for="day">Day: </label>
-								<input class="day" type="text" id="day-export" />
-							</div>
-						</div>
-						<button class="btn btn-success btn-block" id="ok_export_filters"
-							data-dismiss="modal">OK</button>
-					</form>
-				</div>
-			</div>
-		</div>
-	</div>
-	<div class="modal fade" id="dialog_about" role="dialog">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header" style="padding: 35px 50px;">
-					<button type="button" class="close" data-dismiss="modal">&times;</button>
-					<h4>About</h4>
-				</div>
-				<div class="modal-body" style="padding: 40px 50px;">
-					<span id="dialog_about_version"></span>
-				</div>
-			</div>
-		</div>
-	</div>
-</body>
-
+    <div class="modal fade" id="dialog_filter_search" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header" style="padding: 35px 50px;">
+            <button type="button" class="close" data-dismiss="modal">
+              &times;
+            </button>
+            <h4>Search Filters</h4>
+          </div>
+          <div class="modal-body" style="padding: 40px 50px;">
+            <form role="form">
+              <div class="form-group">
+                <div>
+                  <br />
+                  <label for="severity">From Severity</label>
+                  <select id="dialog_search_severity" name="severity">
+                    <option value="0">0-Emergency</option>
+                    <option value="1">1-Alert</option>
+                    <option value="2">2-Critical</option>
+                    <option value="3">3-Error</option>
+                    <option value="4">4-Warning</option>
+                    <option value="5">5-Notice</option>
+                    <option value="6">6-Informational</option>
+                    <option value="7" selected>7-Debug</option>
+                  </select>
+                </div>
+                <div>
+                  <br />
+                  <label for="host">Host</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dialog_search_hostname"
+                    placeholder="Host"
+                    value=""
+                  />
+                </div>
+                <div>
+                  <br />
+                  <label for="app">App</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dialog_search_app"
+                    placeholder="App"
+                    value=""
+                  />
+                </div>
+                <div>
+                  <br />
+                  <label for="day">Day: </label>
+                  <input class="day" type="text" id="day-search" />
+                </div>
+              </div>
+              <button
+                class="btn btn-success btn-block"
+                id="ok_search_filters"
+                data-dismiss="modal"
+              >
+                OK
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal fade" id="dialog_filter_export" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header" style="padding: 35px 50px;">
+            <button type="button" class="close" data-dismiss="modal">
+              &times;
+            </button>
+            <h4>Export Filters</h4>
+          </div>
+          <div class="modal-body" style="padding: 40px 50px;">
+            <form role="form">
+              <div class="form-group">
+                <div>
+                  <br />
+                  <label for="severity">From Severity</label>
+                  <select id="dialog_export_severity" name="severity">
+                    <option value="0">0-Emergency</option>
+                    <option value="1">1-Alert</option>
+                    <option value="2">2-Critical</option>
+                    <option value="3">3-Error</option>
+                    <option value="4">4-Warning</option>
+                    <option value="5">5-Notice</option>
+                    <option value="6">6-Informational</option>
+                    <option value="7" selected>7-Debug</option>
+                  </select>
+                </div>
+                <div>
+                  <br />
+                  <label for="host">Host</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dialog_export_hostname"
+                    placeholder="Host"
+                    value=""
+                  />
+                </div>
+                <div>
+                  <br />
+                  <label for="app">App</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dialog_export_app"
+                    placeholder="App"
+                    value=""
+                  />
+                </div>
+                <div>
+                  <br />
+                  <label for="day">Day: </label>
+                  <input class="day" type="text" id="day-export" />
+                </div>
+              </div>
+              <button
+                class="btn btn-success btn-block"
+                id="ok_export_filters"
+                data-dismiss="modal"
+              >
+                OK
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal fade" id="dialog_about" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header" style="padding: 35px 50px;">
+            <button type="button" class="close" data-dismiss="modal">
+              &times;
+            </button>
+            <h4>About</h4>
+          </div>
+          <div class="modal-body" style="padding: 40px 50px;">
+            <span id="dialog_about_version"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>

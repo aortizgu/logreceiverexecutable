@@ -3,13 +3,17 @@ var SEARCH_DATA = [];
 var EXPORT_DATA = [];
 
 var LIVE_FILTERS = {};
-LIVE_FILTERS["severity"] = "";
+LIVE_FILTERS["severity"] = 8;
 LIVE_FILTERS["hostname"] = "";
-LIVE_FILTERS["device"] = "";
+LIVE_FILTERS["app"] = "";
 var MAX_ENTRIES = 25000;
 
 var scroll_auto = false;
 var live_view = true;
+var new_data_count = 0;
+var new_data_max = 1000;
+var shown_data_count = 0;
+var shown_data_max = new_data_max;
 
 var waitingDialog = waitingDialog || (function ($) {
     'use strict';
@@ -125,39 +129,51 @@ function exportTXT() {
 function matchsLiveFilter(log){
 	var match_severity = true;
 	var match_hostname = true;
-	var match_device = true;
-	if(LIVE_FILTERS["severity"].length > 0){
-		match_severity = String(log["severity"]).toLowerCase().includes(LIVE_FILTERS["severity"]);
-	}
+	var match_app = true;
+	match_severity = log["severity"] <= LIVE_FILTERS["severity"];
 	if(LIVE_FILTERS["hostname"].length > 0){
 		match_hostname = log["hostname"].toLowerCase().includes(LIVE_FILTERS["hostname"]);
 	}
-	if(LIVE_FILTERS["device"].length > 0){
-		match_device = log["app"].toLowerCase().includes(LIVE_FILTERS["device"]);
+	if(LIVE_FILTERS["app"].length > 0){
+		match_app = log["app"].toLowerCase().includes(LIVE_FILTERS["app"]);
 	}
-	return match_severity && match_hostname && match_device;
+	return match_severity && match_hostname && match_app;
 }
 
 function newLiveData(data) {
 	console.log("new data");
-	var log = JSON.parse(data);
+	var log = $.parseJSON(data);;
 	LIVE_DATA.push(log);
+	new_data_count = new_data_count +1;
+	if(new_data_max>new_data_count){
+		LIVE_DATA.shift();
+	}
 	if(matchsLiveFilter(log)){
-		var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app_name'] + "</td><td>"  + log['message'] + "</td></tr>";
+		shown_data_count = shown_data_count +1;
+		var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app'] + "</td><td>"  + log['message'] + "</td></tr>";
 		$('#console_logs_live').append(row);
 		if(scroll_auto && live_view){
 			window.scrollTo(0,document.body.scrollHeight);		
+		}
+		if(shown_data_count>shown_data_max){
+			var d = $('#console_logs_live_table');
+			d[0].deleteRow(1);
 		}
 	}
 }
 
 function applyLiveFilters() {	
 	$('#console_logs_live').html("");
+	shown_data_count = 0;
 	for ( var i in LIVE_DATA) {
 		log = LIVE_DATA[i];
 		if(matchsLiveFilter(log)){
-			var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app_name'] + "</td><td>"  + log['message'] + "</td></tr>";
+			shown_data_count = shown_data_count +1;
+			var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app'] + "</td><td>"  + log['message'] + "</td></tr>";
 			$('#console_logs_live').append(row);
+			if(shown_data_count>shown_data_max){
+				$('#console_logs_live_table').deleteRow(0);
+			}
 		}
 	}
 }
@@ -181,8 +197,11 @@ function getInfo() {
 	});
 }
 
-function searchLogs(device, hostname, severity, day, maxEntries, offsetEntries){
-	var resource = "/search?device=" + device + "&hostname=" + hostname + "&severity=" + severity + "&day=" + day + "&max=" + maxEntries + "&offset=" + offsetEntries;
+function searchLogs(app, hostname, severity, day, maxEntries, offsetEntries){
+	var daySplit = day.split("-");
+	var from = new Date(daySplit[2], daySplit[1]-1, daySplit[0], 0, 0, 0, 0).getTime()/1000;
+	var to = new Date(daySplit[2], daySplit[1]-1, daySplit[0], 23, 59, 59, 0).getTime()/1000;
+	var resource = "/search?app=" + app + "&hostname=" + hostname + "&severity=" + severity + "&from=" + from + "&to=" + to + "&max=" + maxEntries + "&offset=" + offsetEntries;
 	$.ajax({
 		url : resource,
 		type : 'GET',
@@ -192,14 +211,14 @@ function searchLogs(device, hostname, severity, day, maxEntries, offsetEntries){
 		for ( var i in logs) {
 			log = logs[i];
 			SEARCH_DATA.push(log);
-			var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app_name'] + "</td><td>"  + log['message'] + "</td></tr>";
+			var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app'] + "</td><td>"  + log['message'] + "</td></tr>";
 			$('#console_logs_search').append(row);
 		}
 		if(logs.length == 0 || logs.length != maxEntries){
 			waitingDialog.hide();
 		}else{
 			waitingDialog.show('Downloading logs, ' + (offsetEntries + maxEntries) + " downloaded.");
-			searchLogs(device, hostname, severity, day, maxEntries, offsetEntries + maxEntries);
+			searchLogs(app, hostname, severity, day, maxEntries, offsetEntries + maxEntries);
 		}
 	}).fail(function() {
 		console.log("error loading " + resource);
@@ -208,8 +227,11 @@ function searchLogs(device, hostname, severity, day, maxEntries, offsetEntries){
 	});
 }
 
-function exportLogs(from_str, device, hostname, severity, day, maxEntries, offsetEntries){
-	var resource = "/search?device=" + device + "&hostname=" + hostname + "&severity=" + severity + "&day=" + day + "&max=" + maxEntries + "&offset=" + offsetEntries;
+function exportLogs(from_str, app, hostname, severity, day, maxEntries, offsetEntries){
+	var daySplit = day.split("-");
+	var from = new Date(daySplit[2], daySplit[1]-1, daySplit[0], 0, 0, 0, 0).getTime()/1000;
+	var to = new Date(daySplit[2], daySplit[1]-1, daySplit[0], 23, 59, 59, 0).getTime()/1000;
+	var resource = "/search?app=" + app + "&hostname=" + hostname + "&severity=" + severity + "&from=" + from + "&to=" + to + "&max=" + maxEntries + "&offset=" + offsetEntries;
 	$.ajax({
 		url : resource,
 		type : 'GET',
@@ -226,7 +248,7 @@ function exportLogs(from_str, device, hostname, severity, day, maxEntries, offse
 			waitingDialog.hide();
 		}else{
 			waitingDialog.show('Downloading logs, ' + (offsetEntries + maxEntries) + " downloaded.");
-			exportLogs(from_str, device, hostname, severity, day, maxEntries, offsetEntries + maxEntries);
+			exportLogs(from_str, app, hostname, severity, day, maxEntries, offsetEntries + maxEntries);
 		}
 	}).fail(function() {
 		console.log("error loading " + resource);
@@ -273,11 +295,7 @@ $('document').ready(function() {
 
 	});
 	
-	$('#export_live').click(function () {
-		$("#dialog_filter_export").modal()
-	});
-	
-	$('#export_search').click(function () {
+	$('#search_and_export_button').click(function () {
 		$("#dialog_filter_export").modal()
 	});
 	
@@ -294,20 +312,20 @@ $('document').ready(function() {
 	});
 
 	$('#ok_live_filters').click(function (e) {
-		var severity = $('#dialog_filter_severity')[0].value.toLowerCase();
+		var severity = $('#dialog_filter_severity').val();
 		var hostname = $('#dialog_filter_hostname')[0].value.toLowerCase();
-		var device = $('#dialog_filter_device')[0].value.toLowerCase();
-		LIVE_FILTERS["severity"] = severity.toLowerCase();
+		var app = $('#dialog_filter_app')[0].value.toLowerCase();
+		LIVE_FILTERS["severity"] = severity;
 		LIVE_FILTERS["hostname"] = hostname.toLowerCase();
-		LIVE_FILTERS["device"] = device.toLowerCase();
+		LIVE_FILTERS["app"] = app.toLowerCase();
 		applyLiveFilters();
 		e.preventDefault();		
 	});
 
 	$('#clear_live_filters').click(function (e) {
-		LIVE_FILTERS["severity"] = "";
+		LIVE_FILTERS["severity"] = 8;
 		LIVE_FILTERS["hostname"] = "";
-		LIVE_FILTERS["device"] = "";
+		LIVE_FILTERS["app"] = "";
 		applyLiveFilters();
 		e.preventDefault();		
 	});
@@ -315,6 +333,7 @@ $('document').ready(function() {
 	$('#clear_live_logs').click(function (e) {
 		LIVE_DATA = [];
 		$('#console_logs_live').html("");
+		shown_data_count = 0;
 		e.preventDefault();		
 	});
 
@@ -325,25 +344,25 @@ $('document').ready(function() {
 	});
 
 	$('#ok_search_filters').click(function (e) {
-		var device = $('#dialog_search_device')[0].value.toLowerCase();
+		var app = $('#dialog_search_app')[0].value.toLowerCase();
 		var hostname = $('#dialog_search_hostname')[0].value.toLowerCase();
-		var severity = $('#dialog_search_severity')[0].value.toLowerCase();
+		var severity = $('#dialog_search_severity').val();
 		var day = $("#day-search").val();
 		waitingDialog.show('Downloading logs...');
 		SEARCH_DATA = [];
 		$('#console_logs_search').html("");
-		searchLogs(device, hostname, severity, day, MAX_ENTRIES, 0);
+		searchLogs(app, hostname, severity, day, MAX_ENTRIES, 0);
 		e.preventDefault();		
 	});
 
 	$('#ok_export_filters').click(function (e) {
-		var device = $('#dialog_export_device')[0].value.toLowerCase();
+		var app = $('#dialog_export_app')[0].value.toLowerCase();
 		var hostname = $('#dialog_export_hostname')[0].value.toLowerCase();
-		var severity = $('#dialog_export_severity')[0].value.toLowerCase();
+		var severity = $('#dialog_export_severity').val();
 		var day = $("#day-export").val();
 		waitingDialog.show('Downloading logs...');
 		EXPORT_DATA = [];
-		exportLogs(day, device, hostname, severity, day, MAX_ENTRIES, 0);
+		exportLogs(day, app, hostname, severity, day, MAX_ENTRIES, 0);
 		e.preventDefault();		
 	});
 
