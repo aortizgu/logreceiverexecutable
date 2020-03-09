@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
-	"logreceiver"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/aortizgu/logreceiver"
 
 	"github.com/grandcat/zeroconf"
 )
