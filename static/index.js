@@ -141,22 +141,30 @@ function matchsLiveFilter(log){
 }
 
 function newLiveData(data) {
-	var log = $.parseJSON(data);;
-	LIVE_DATA.push(log);
-	new_data_count = new_data_count +1;
-	if(new_data_max>new_data_count){
-		LIVE_DATA.shift();
+	var log = undefined;
+	try {
+		log = $.parseJSON(data);;
 	}
-	if(matchsLiveFilter(log)){
-		shown_data_count = shown_data_count +1;
-		var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app'] + "</td><td>"  + log['message'] + "</td></tr>";
-		$('#console_logs_live').append(row);
-		if(scroll_auto && live_view){
-			window.scrollTo(0,document.body.scrollHeight);		
+	catch(error) {
+		console.log(error);
+	}
+	if (log != undefined){
+		LIVE_DATA.push(log);
+		new_data_count = new_data_count +1;
+		if(new_data_max>new_data_count){
+			LIVE_DATA.shift();
 		}
-		if(shown_data_count>shown_data_max){
-			var d = $('#console_logs_live_table');
-			d[0].deleteRow(1);
+		if(matchsLiveFilter(log)){
+			shown_data_count = shown_data_count +1;
+			var row = "<tr><td>" + log['severity'] + "</td><td>" + new Date(log['timestamp']*1000).toLocaleString() + "</td><td>" + log['hostname'] + "</td><td>"  + log['app'] + "</td><td>"  + log['message'] + "</td></tr>";
+			$('#console_logs_live').append(row);
+			if(scroll_auto && live_view){
+				window.scrollTo(0,document.body.scrollHeight);		
+			}
+			if(shown_data_count>shown_data_max){
+				var d = $('#console_logs_live_table');
+				d[0].deleteRow(1);
+			}
 		}
 	}
 }
