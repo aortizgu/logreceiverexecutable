@@ -188,6 +188,7 @@ function getInfo() {
 				"Port: " + info['port'] + "<br>" +
 				"Max logs to store: " + info['max_logs'] + "<br>" +
 				"Logs stored: " + info['log_count'] + "<br>" +
+				"Oldest log: " + (new Date(info['oldest_log'] * 1000)).toLocaleString() + "<br>" +
 				"Open web sockets: " + info['open_web_sockets_count'] + "<br>" +
 				"Uptime: " + info['uptime'] + "<br>");
 	}).fail(function() {
